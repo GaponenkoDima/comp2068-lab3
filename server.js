@@ -1,57 +1,84 @@
-// Defining the IP Address of our server
-var ipAddress = "127.0.0.1";
+// server.js
 
-// Defining the port on which we want to listen
-var portNumber = "3000";
+// bring connect into our file
+var connect = require('connect');
 
-// Importing necessary library files
-var httpModule = require("http");
+// load in the accounting module
+var accounting = require('accounting');
 
-// Creating our server's main method
-httpModule.createServer(
- function serviceRequest (request, response) {
+// load in the url module to parse url parameters
+var url = require('url');
 
-  // Check what file the user has requested and take necessary method
-  var queryString = new String(request.url);
+// bring in the filesystem module
+var fs = require('fs');
 
-  // We're expecting URLs of the following type:
-  // x=3[method=add]&y=6
+// instantiate our app from connect
+var app = connect();
 
-  var keyValuePairs = queryString.split("&"); // Splitting the query string based on & delimiter
+//make our calculator function
+function calculator(method, x, y) {
 
-  // Now keyValuePairs[0] contains our method
-  var method = keyValuePairs[0].replace("/","").split("=")[1]; // extracting the method specified in the URL
-  var firstNumber = new String(keyValuePairs[1].split("&")).split("=")[1] || "0"; // extracting the first number
-  var secondNumber = new String(keyValuePairs[2].split("&")).split("=")[1] || "0"; // extracting the second number
+  //possible values for the method signs
+  var signs = {
+    add: ' + ',
+    subtract: ' - ',
+    multiply: ' * ',
+    divide: ' / ' };
 
-  // calling the method to get the result
-  var result = getResult(method.toLowerCase(), Number(firstNumber) , Number(secondNumber));
+    //error message if the method sign is anything else
+  var result = 'Error. Invalid input.';
+  //parseFloat to truncate the numbers out of the string
+  x = parseFloat(x);
+  y = parseFloat(y);
 
-  // HTML which we will display to the user
-  
-var htmlContent = "<html><b>" + firstNumber + "[" + method + "]" + secondNumber + "=" + "<b>" + result + "</b></html>";
-  // write the response
-  response.end(htmlContent);
- }
-).listen(portNumber, ipAddress);
-
-// Utility method to perform an operation on 2 numbers. Helps to modularize code
-function getResult(operation, x, y)
-{
- var result = 0;
-
- if(operation == "add")
-  result = x + y;
-
- else if(operation == "subtract")
-  result = x - y;
-
- else if(operation == "multiply")
-  result = x * y;
-
- else if(operation == "divide" && y != 0)
-  result = x / y;
-
-
- return result;
+//function to perfom the calculation
+  if (signs[method] && !isNaN(x) && !isNaN(y)) {
+    var expression = x + signs[method] + y;
+    result = expression + ' = ' + eval(expression);
+  }
+  return result;
 }
+
+app.use('/lab3.js', function(req, res) {
+  // grab the values from the url
+  // http://localhost:3000/lab3.js?method=add&x=16&y=4
+  var query = url.parse(req.url, true).query;
+   // display all values
+  res.end(calculator(query.method, query.x, query.y));
+});
+
+function hello(req, res){
+  res.end("Hello!");
+}
+
+// make a function to handle all
+// generic requests
+function generic(req, res){
+  fs.readFile('default.html', function(err, data){
+    res.writeHead(200, {
+      'Content-Type': 'text/html',
+      'Content-Length': data.length
+    });
+    res.write(data);
+    res.end();
+  })
+}
+
+// make hello available to the browser
+app.use('/hello', hello);
+
+// make a goodbye route
+app.use('/goodbye', function(req, res){
+  res.end("Goodbye!")
+})
+
+// add the generic function to our connect
+app.use(generic)
+
+// actually start the server, on
+// port 3000
+app.listen(3000)
+
+// spit out to the console telling us
+// that the server is running
+console.log('Connect running on port 3000')
